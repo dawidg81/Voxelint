@@ -1,5 +1,4 @@
 #include <SDL2/SDL.h>
-#include <GL/gl.h>
 #include <stdio.h>
 #include "window.hpp"
 #include "draw.hpp"
@@ -16,15 +15,19 @@ int main(int argc, char* argv[]){
         printf("SDL could not initialize! SDL Error: %s\n", SDL_GetError());
 
     RenderWindow window("Voxelint", SCREEN_WIDTH, SCREEN_HEIGHT);
+    SDL_Renderer* sdlRenderer = window.GetRenderer();
 
-    // SDL renderer for HUD only (no 3D)
-    SDL_Renderer* sdlRenderer = SDL_CreateRenderer(window.GetWindow(), -1,
-        SDL_RENDERER_ACCELERATED | SDL_RENDERER_TARGETTEXTURE);
+    if(!sdlRenderer)
+        printf("Renderer could not be created! SDL Error: %s\n", SDL_GetError());
 
+    // Lock mouse to window
     SDL_SetRelativeMouseMode(SDL_TRUE);
 
     World world;
     world.Generate();
+
+    printf("block at 64,32,64 = %d\n", world.Get(64, 32, 64)); // should print 1
+    printf("block at 64,33,64 = %d\n", world.Get(64, 33, 64)); // should print 0 (air)
 
     Camera cam;
     cam.Init({64, 40, 64});
@@ -39,7 +42,6 @@ int main(int argc, char* argv[]){
     Uint32 fpsTimer = SDL_GetTicks();
     int frameCount = 0, fps = 0;
     char fpsText[32];
-    char camText[64];
 
     while(gameRunning){
         Uint32 now = SDL_GetTicks();
@@ -57,42 +59,31 @@ int main(int argc, char* argv[]){
         const Uint8* keys = SDL_GetKeyboardState(NULL);
         cam.HandleInput(keys, dt);
 
-        // --- 3D world (OpenGL) ---
-        renderer.BeginFrame();
-        renderer.DrawWorld(world, cam);
+        SDL_SetRenderDrawColor(sdlRenderer, 135, 206, 235, 255); // sky blue
+        SDL_RenderClear(sdlRenderer);
+        renderer.Clear();
 
-        // --- 2D HUD (SDL drawn into GL framebuffer via glDrawPixels workaround)
-        // Simplest approach: use glRasterPos + SDL surface, OR just use GL lines/quads for text
-        // Since draw.hpp uses SDL_Renderer, we render HUD to a texture then blit
-        // For now: draw directly with OpenGL immediate mode text workaround
-        // by re-enabling 2D mode and using our font manually via GL_POINTS
+        renderer.DrawWorld(sdlRenderer, world, cam);
 
-        // FPS counter
+        // FPS
         frameCount++;
         if(SDL_GetTicks() - fpsTimer >= 1000){
-            fps = frameCount;
-            frameCount = 0;
+            fps = frameCount; frameCount = 0;
             fpsTimer = SDL_GetTicks();
         }
-
-        // Switch to ortho 2D, draw HUD text via OpenGL points (reuse font data)
-        renderer.BeginHUD(window.GetWindow());
-
         snprintf(fpsText, sizeof(fpsText), "%d fps", fps);
-        snprintf(camText, sizeof(camText), "%.1f %.1f %.1f  yaw %.2f pitch %.2f",
-            cam.pos.x, cam.pos.y, cam.pos.z, cam.yaw, cam.pitch);
+        DrawText(sdlRenderer, "0.1.0", 0, 0, 1, 255, 255, 255);
+        DrawText(sdlRenderer, fpsText, 0, 8, 1, 255, 255, 255);
 
-        DrawText(sdlRenderer, "0.1.0", 0, 0,  1, 255, 255, 255);
-        DrawText(sdlRenderer, fpsText,  0, 8,  1, 255, 255, 255);
-        DrawText(sdlRenderer, camText,  0, 16, 1, 255, 255, 255);
+	char camText[64];
+	snprintf(camText, sizeof(camText), "%.1f %.1f %.1f %.2f %.2f",
+	    cam.pos.x, cam.pos.y, cam.pos.z, cam.yaw, cam.pitch);
+	DrawText(sdlRenderer, camText, 0, 16, 1, 255, 255, 255);
 
-        renderer.EndHUD(window.GetWindow());
-
-        SDL_GL_SwapWindow(window.GetWindow());
+        SDL_RenderPresent(sdlRenderer);
     }
 
     SDL_SetRelativeMouseMode(SDL_FALSE);
-    SDL_DestroyRenderer(sdlRenderer);
     window.close();
     return 0;
 }

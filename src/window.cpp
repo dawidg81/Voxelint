@@ -1,34 +1,28 @@
-#include "window.hpp"
+#include <SDL2/SDL.h>
 #include <stdio.h>
+#include "window.hpp"
 
-RenderWindow::RenderWindow(const char* title, int width, int height)
-    : window(NULL), glContext(NULL)
-{
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
-    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
+RenderWindow::RenderWindow(const char* title, int width, int height) : window(NULL), renderer(NULL){
+	window = SDL_CreateWindow(title, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, width, height, SDL_WINDOW_SHOWN);
 
-    window = SDL_CreateWindow(title,
-        SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
-        width, height,
-        SDL_WINDOW_SHOWN | SDL_WINDOW_OPENGL);
+	if(window == NULL)
+		printf("SDL could not create window! SDL Error: %s\n", SDL_GetError());
 
-    if(!window)
-        printf("Window error: %s\n", SDL_GetError());
+	renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
 
-    glContext = SDL_GL_CreateContext(window);
-    if(!glContext)
-        printf("GL context error: %s\n", SDL_GetError());
-
-    SDL_GL_SetSwapInterval(0); // 0 = uncapped, 1 = vsync
+	if(renderer == NULL)
+		printf("SDL could not create renderer! SDL Error: %s\n", SDL_GetError());
 }
 
-SDL_Window* RenderWindow::GetWindow() { return window; }
-SDL_GLContext RenderWindow::GetGLContext() { return glContext; }
+SDL_Renderer* RenderWindow::GetRenderer(){
+	return renderer;
+}
 
 void RenderWindow::close(){
-    SDL_GL_DeleteContext(glContext);
-    SDL_DestroyWindow(window);
-    SDL_Quit();
+	SDL_DestroyRenderer(renderer);
+	SDL_DestroyWindow(window);
+	renderer = NULL;
+	window = NULL;
+
+	SDL_Quit();
 }
